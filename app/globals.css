@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-background: #f3f4f6;
+  --color-foreground: #1a1a1a;
+  
+  --color-primary: #030213;
+  --color-secondary: #F39C12;
+  --color-accent: #F39C12;
+  
+  --color-halcon-dark: #2C3E50;
+  --color-halcon-orange: #F39C12;
+  --color-halcon-grey: #95A5A6;
+  --color-halcon-light: #ECF0F1;
+
+  --font-inter: "Inter", sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-background text-foreground font-inter antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .mobile-container {
+    @apply mx-auto min-h-screen w-full max-w-[430px] bg-white shadow-xl overflow-x-hidden flex flex-col;
+  }
+  
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
 }
