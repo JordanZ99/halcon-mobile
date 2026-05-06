@@ -13,9 +13,17 @@ export async function loginAction(email: string, pass: string) {
       body: JSON.stringify({ email, password: pass })
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Response is not JSON. Status:", response.status);
+      console.error("Response body snippet:", text.substring(0, 500));
+      return { success: false, message: `El servidor devolvió HTML en lugar de JSON (Código ${response.status}). Revisa los logs de Vercel.` };
+    }
 
-    if (response.ok && data.token) {
+    if (response.ok && data && data.token) {
       const cookieStore = await cookies();
       cookieStore.set('halcon_token', data.token, {
         httpOnly: true,
