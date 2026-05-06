@@ -25,8 +25,9 @@ export async function fetchOrdersAction() {
       return { success: true, data: Array.isArray(data) ? data : data.data || [] };
     }
     return { success: false, status: response.status };
-  } catch (error) {
-    return { success: false, message: "Error fetching orders" };
+  } catch (error: any) {
+    console.error("Fetch Orders Action Error:", error);
+    return { success: false, message: "Error fetching orders: " + (error.message || String(error)) };
   }
 }
 
@@ -54,7 +55,8 @@ export async function updateOrderStatusAction(id: string, formData: FormData) {
     
     const data = await response.json();
     return { success: false, message: data.message || "Error al actualizar" };
-  } catch (error) {
-    return { success: false, message: "Error de conexión al servidor" };
+  } catch (error: any) {
+    console.error("Update Order Status Action Error:", error);
+    return { success: false, message: "Error de conexión: " + (error.message || String(error)) };
   }
 }

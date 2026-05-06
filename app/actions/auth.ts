@@ -27,8 +27,9 @@ export async function loginAction(email: string, pass: string) {
       return { success: true, user: data.user };
     }
     return { success: false, message: data.message || "Error al iniciar sesión" };
-  } catch (error) {
-    return { success: false, message: "Error de conexión al servidor" };
+  } catch (error: any) {
+    console.error("Login Action Error:", error);
+    return { success: false, message: "Error de conexión: " + (error.message || String(error)) };
   }
 }
 
