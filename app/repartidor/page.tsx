@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Truck, 
   ChevronLeft, 
@@ -12,6 +12,8 @@ import {
   User
 } from "lucide-react";
 import Link from "next/link";
+import { loginAction, logoutAction } from "@/app/actions/auth";
+import { fetchOrdersAction } from "@/app/actions/orders";
 
 const MOCK_ORDERS = [
   { id: "12345", customer: "Carlos M.", zone: "Sector Norte", items: "3 cajas", status: "Pendiente" },
@@ -23,12 +25,44 @@ export default function RepartidorPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    const checkAuth = async () => {
+      const result = await fetchOrdersAction();
+      if (result.success) {
+        setOrders(result.data);
+        setIsLoggedIn(true);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (user && pass) {
-      setIsLoggedIn(true);
+      setIsLoading(true);
+      setErrorMsg("");
+      const result = await loginAction(user, pass);
+      
+      if (result.success) {
+        setIsLoggedIn(true);
+        const ordersResult = await fetchOrdersAction();
+        if (ordersResult.success) {
+          setOrders(ordersResult.data);
+        }
+      } else {
+        setErrorMsg(result.message || "Error al iniciar sesión");
+      }
+      setIsLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logoutAction();
+    setIsLoggedIn(false);
   };
 
   if (!isLoggedIn) {
@@ -69,10 +103,12 @@ export default function RepartidorPage() {
             </div>
             <button 
               type="submit"
-              className="w-full bg-halcon-dark text-white font-bold py-4 rounded-xl mt-6 shadow-lg shadow-black/10 active:scale-95 transition-transform"
+              disabled={isLoading}
+              className="w-full bg-halcon-dark text-white font-bold py-4 rounded-xl mt-6 shadow-lg shadow-black/10 active:scale-95 transition-transform disabled:opacity-50"
             >
-              INGRESAR AL SISTEMA
+              {isLoading ? "INGRESANDO..." : "INGRESAR AL SISTEMA"}
             </button>
+            {errorMsg && <p className="text-red-500 text-xs text-center mt-3 font-medium">{errorMsg}</p>}
           </form>
           <p className="text-center text-halcon-grey text-[10px] mt-10">
             Halcón Logística - Dispositivo Autorizado
@@ -92,8 +128,8 @@ export default function RepartidorPage() {
           <p className="text-halcon-grey text-xs tracking-wider">Juan Pérez · ID: 4421</p>
         </div>
         <button 
-          onClick={() => setIsLoggedIn(false)}
-          className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white"
+          onClick={handleLogout}
+          className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors"
         >
           <LogOut size={18} />
         </button>
@@ -103,11 +139,11 @@ export default function RepartidorPage() {
         <div className="flex items-center justify-between mb-2">
           <p className="text-halcon-dark text-xs font-bold uppercase tracking-wider">Pendientes de hoy</p>
           <span className="bg-halcon-orange text-halcon-dark text-[10px] font-bold px-2 py-0.5 rounded-full">
-            {MOCK_ORDERS.length} PEDIDOS
+            {orders.length} PEDIDOS
           </span>
         </div>
 
-        {MOCK_ORDERS.map((order) => (
+        {orders.map((order: any) => (
           <Link 
             key={order.id}
             href={`/repartidor/entrega/${order.id}`}

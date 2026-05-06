@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { updateOrderStatusAction } from "@/app/actions/orders";
 
 export default function EntregaPage() {
   const { id } = useParams();
@@ -36,18 +37,44 @@ export default function EntregaPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!photo) return;
     setIsSubmitting(true);
-    // Simulate upload
-    setTimeout(() => {
+
+    try {
+      const formData = new FormData();
+      formData.append('status', 'Delivered');
+      formData.append('notes', notes);
+
+      if (fileInputRef.current?.files?.[0]) {
+        formData.append('photo', fileInputRef.current.files[0]);
+      } else {
+        const res = await fetch(photo);
+        const blob = await res.blob();
+        formData.append('photo', blob, 'evidencia.jpg');
+      }
+
+      const result = await updateOrderStatusAction(id as string, formData);
+
+      if (result.success) {
+        setIsDone(true);
+        setTimeout(() => {
+          router.push("/repartidor");
+        }, 1500);
+      } else {
+        if (result.status === 401) {
+          router.push("/repartidor");
+        } else {
+          console.error("Error al actualizar:", result.message);
+          alert(result.message || "Error al subir evidencia");
+        }
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error de conexión");
+    } finally {
       setIsSubmitting(false);
-      setIsDone(true);
-      // Wait a bit then go back
-      setTimeout(() => {
-        router.push("/repartidor");
-      }, 1500);
-    }, 2000);
+    }
   };
 
   return (
