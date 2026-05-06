@@ -54,6 +54,11 @@ export default function RepartidorPage() {
           setOrders(ordersResult.data);
         }
       } else {
+        if (result.rawHtml) {
+          console.error("====== HTML DEVUELTO POR EL SERVIDOR ======");
+          console.log(result.rawHtml);
+          console.error("===========================================");
+        }
         setErrorMsg(result.message || "Error al iniciar sesión");
       }
       setIsLoading(false);

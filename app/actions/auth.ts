@@ -20,7 +20,11 @@ export async function loginAction(email: string, pass: string) {
     } catch (parseError) {
       console.error("Response is not JSON. Status:", response.status);
       console.error("Response body snippet:", text.substring(0, 500));
-      return { success: false, message: `El servidor devolvió HTML en lugar de JSON (Código ${response.status}). Revisa los logs de Vercel.` };
+      return { 
+        success: false, 
+        message: `El servidor devolvió HTML (Código ${response.status}). Revisa la consola F12.`,
+        rawHtml: text
+      };
     }
 
     if (response.ok && data && data.token) {
