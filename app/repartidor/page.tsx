@@ -9,7 +9,8 @@ import {
   MapPin, 
   ChevronRight,
   LogOut,
-  User
+  User,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { loginAction, logoutAction } from "@/app/actions/auth";
