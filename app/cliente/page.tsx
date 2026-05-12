@@ -151,7 +151,10 @@ export default function ClientePage() {
   return (
     <div className="flex flex-col flex-1 bg-[#2C3E50] min-h-screen">
       {/* Brand Header */}
-      <div className="flex flex-col items-center pt-16 pb-12">
+      <div className="flex flex-col items-center pt-8 pb-12 px-6">
+        <Link href="/" className="self-start inline-flex items-center text-[#95A5A6] text-xs font-bold mb-8 hover:text-white transition-colors">
+          <ChevronLeft size={14} className="mr-1" /> SALIR
+        </Link>
         <div className="w-20 h-20 bg-[#F39C12] rounded-2xl flex items-center justify-center shadow-lg shadow-black/20 mb-6">
           <HardHat size={44} className="text-[#2C3E50]" />
         </div>
