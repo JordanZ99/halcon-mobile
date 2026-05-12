@@ -23,6 +23,7 @@ const MOCK_ORDERS = [
 
 export default function RepartidorPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [orders, setOrders] = useState(MOCK_ORDERS);
@@ -36,6 +37,7 @@ export default function RepartidorPage() {
         setOrders(result.data);
         setIsLoggedIn(true);
       }
+      setIsCheckingAuth(false);
     };
     checkAuth();
   }, []);
@@ -69,6 +71,15 @@ export default function RepartidorPage() {
     await logoutAction();
     setIsLoggedIn(false);
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex flex-col flex-1 items-center justify-center bg-gray-50 min-h-screen">
+        <Loader2 className="animate-spin text-halcon-orange" size={32} />
+        <p className="text-halcon-dark mt-4 font-medium text-sm">Verificando sesión...</p>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
