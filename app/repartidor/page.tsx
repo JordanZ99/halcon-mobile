@@ -1,31 +1,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Truck, 
-  ChevronLeft, 
-  ShieldCheck, 
-  Package, 
-  MapPin, 
+import {
+  Truck,
+  ChevronLeft,
+  ShieldCheck,
+  Package,
+  MapPin,
   ChevronRight,
   LogOut,
-  User
+  User,
+  Package2
 } from "lucide-react";
 import Link from "next/link";
 import { loginAction, logoutAction } from "@/app/actions/auth";
 import { fetchOrdersAction } from "@/app/actions/orders";
 
-const MOCK_ORDERS = [
-  { id: "12345", customer: "Carlos M.", zone: "Sector Norte", items: "3 cajas", status: "Pendiente" },
-  { id: "12346", customer: "Elena R.", zone: "Santa Catarina", items: "1 palet", status: "Pendiente" },
-  { id: "12347", customer: "Ind. Ramos", zone: "Parque Industrial", items: "5 bultos", status: "Pendiente" },
-];
+interface OrderItem {
+  id: number;
+  customer_name: string;
+  delivery_address: string;
+  status: string;
+  products: Array<{ name: string; quantity: number }>;
+}
+
+const MOCK_ORDERS: OrderItem[] = [];
 
 export default function RepartidorPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
-  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [orders, setOrders] = useState<OrderItem[]>(MOCK_ORDERS);
+  const [deliveredOrders, setDeliveredOrders] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -33,7 +39,11 @@ export default function RepartidorPage() {
     const checkAuth = async () => {
       const result = await fetchOrdersAction();
       if (result.success) {
-        setOrders(result.data);
+        const allOrders = result.data;
+        const delivered = allOrders.filter((o: OrderItem) => o.status === 'Delivered');
+        const pending = allOrders.filter((o: OrderItem) => o.status !== 'Delivered');
+        setOrders(pending);
+        setDeliveredOrders(delivered);
         setIsLoggedIn(true);
       }
     };
@@ -46,12 +56,16 @@ export default function RepartidorPage() {
       setIsLoading(true);
       setErrorMsg("");
       const result = await loginAction(user, pass);
-      
+
       if (result.success) {
         setIsLoggedIn(true);
         const ordersResult = await fetchOrdersAction();
         if (ordersResult.success) {
-          setOrders(ordersResult.data);
+          const allOrders = ordersResult.data;
+          const delivered = allOrders.filter((o: OrderItem) => o.status === 'Delivered');
+          const pending = allOrders.filter((o: OrderItem) => o.status !== 'Delivered');
+          setOrders(pending);
+          setDeliveredOrders(delivered);
         }
       } else {
         if (result.rawHtml) {
@@ -68,6 +82,23 @@ export default function RepartidorPage() {
   const handleLogout = async () => {
     await logoutAction();
     setIsLoggedIn(false);
+    setOrders([]);
+    setDeliveredOrders([]);
+  };
+
+  const getZoneFromAddress = (address: string): string => {
+    if (!address) return "Zona No Definida";
+    const upper = address.toUpperCase();
+    if (upper.includes("NORTE")) return "Sector Norte";
+    if (upper.includes("SUR") || upper.includes("SURTE")) return "Sector Sur";
+    if (upper.includes("CENTRO")) return "Centro";
+    if (upper.includes("INDUSTRIAL")) return "Parque Industrial";
+    return "Zona Metropolitana";
+  };
+
+  const getItemsSummary = (products: Array<{ name: string; quantity: number }> | undefined): string => {
+    if (!products || products.length === 0) return "Sin productos";
+    return products.map(p => `${p.quantity}x ${p.name}`).join(", ");
   };
 
   if (!isLoggedIn) {
@@ -148,44 +179,100 @@ export default function RepartidorPage() {
           </span>
         </div>
 
-        {orders.map((order: any) => (
-          <Link 
-            key={order.id}
-            href={`/repartidor/entrega/${order.id}`}
-            className="block bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-[0.98] transition-transform"
-          >
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <Package size={16} className="text-halcon-grey" />
+        {orders.length === 0 ? (
+          <div className="bg-halcon-dark/5 border border-dashed border-halcon-grey/30 rounded-2xl p-4 text-center">
+            <p className="text-halcon-grey text-xs">No hay entregas pendientes</p>
+          </div>
+        ) : (
+          orders.map((order) => (
+            <Link
+              key={order.id}
+              href={`/repartidor/entrega/${order.id}`}
+              className="block bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-[0.98] transition-transform"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Package2 size={16} className="text-halcon-grey" />
+                  </div>
+                  <div>
+                    <p className="text-halcon-dark text-sm font-bold">FAC-{order.id}</p>
+                    <p className="text-halcon-grey text-[10px] uppercase font-medium">
+                      {getItemsSummary(order.products)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-halcon-dark text-sm font-bold">FAC-{order.id}</p>
-                  <p className="text-halcon-grey text-[10px] uppercase font-medium">{order.items}</p>
+                <ChevronRight size={18} className="text-gray-300" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-2 pt-3 border-t border-gray-50">
+                <div className="flex items-center gap-2">
+                  <User size={14} className="text-halcon-orange" />
+                  <span className="text-halcon-dark text-xs font-medium">{order.customer_name}</span>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <MapPin size={14} className="text-halcon-orange" />
+                  <span className="text-halcon-dark text-xs font-medium">{getZoneFromAddress(order.delivery_address)}</span>
                 </div>
               </div>
-              <ChevronRight size={18} className="text-gray-300" />
+            </Link>
+          ))
+        )}
+
+        {deliveredOrders.length > 0 && (
+          <>
+            <div className="flex items-center justify-between mb-2 mt-6">
+              <p className="text-halcon-dark text-xs font-bold uppercase tracking-wider">Entregados</p>
+              <span className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {deliveredOrders.length} ENTREGADOS
+              </span>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4 mt-2 pt-3 border-t border-gray-50">
-              <div className="flex items-center gap-2">
-                <User size={14} className="text-halcon-orange" />
-                <span className="text-halcon-dark text-xs font-medium">{order.customer}</span>
+
+            {deliveredOrders.map((order) => (
+              <div
+                key={order.id}
+                className="block bg-white rounded-2xl p-4 shadow-sm border border-gray-100 opacity-60"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Package2 size={16} className="text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-halcon-dark text-sm font-bold">FAC-{order.id}</p>
+                      <p className="text-halcon-grey text-[10px] uppercase font-medium">
+                        {getItemsSummary(order.products)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    ENTREGADO
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-2 pt-3 border-t border-gray-50">
+                  <div className="flex items-center gap-2">
+                    <User size={14} className="text-green-600" />
+                    <span className="text-halcon-dark text-xs font-medium">{order.customer_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    <MapPin size={14} className="text-green-600" />
+                    <span className="text-halcon-dark text-xs font-medium">{getZoneFromAddress(order.delivery_address)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2 justify-end">
-                <MapPin size={14} className="text-halcon-orange" />
-                <span className="text-halcon-dark text-xs font-medium">{order.zone}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
+            ))}
+          </>
+        )}
       </div>
 
-      <div className="p-5">
-        <div className="bg-halcon-dark/5 border border-dashed border-halcon-grey/30 rounded-2xl p-4 text-center">
-          <p className="text-halcon-grey text-xs">No hay más entregas programadas</p>
+      {orders.length === 0 && deliveredOrders.length === 0 && (
+        <div className="p-5">
+          <div className="bg-halcon-dark/5 border border-dashed border-halcon-grey/30 rounded-2xl p-4 text-center">
+            <p className="text-halcon-grey text-xs">No hay entregas programadas</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

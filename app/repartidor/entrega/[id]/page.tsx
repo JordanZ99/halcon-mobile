@@ -1,30 +1,53 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { 
-  ChevronLeft, 
-  Camera, 
-  Check, 
-  AlertTriangle, 
-  Clock, 
-  MapPin, 
-  User, 
+import { useState, useRef, useEffect } from "react";
+import {
+  ChevronLeft,
+  Camera,
+  Check,
+  AlertTriangle,
+  Clock,
+  MapPin,
+  User,
   Package,
-  X,
   Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { updateOrderStatusAction } from "@/app/actions/orders";
+import { updateOrderStatusAction, fetchOrderDetailAction } from "@/app/actions/orders";
+
+interface OrderDetail {
+  id: number;
+  invoice_number: string;
+  customer_name: string;
+  delivery_address: string;
+  status: string;
+  products: Array<{ id: number; name: string; quantity: number; pivot: { quantity: number } }>;
+}
 
 export default function EntregaPage() {
   const { id } = useParams();
   const router = useRouter();
+  const [order, setOrder] = useState<OrderDetail | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [notes, setNotes] = useState("Se dejó junto al portón");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadOrderDetail = async () => {
+      const result = await fetchOrderDetailAction(id as string);
+      if (result.success && result.data) {
+        setOrder(result.data);
+      }
+      setIsLoadingOrder(false);
+    };
+    if (id) {
+      loadOrderDetail();
+    }
+  }, [id]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,11 +70,11 @@ export default function EntregaPage() {
       formData.append('notes', notes);
 
       if (fileInputRef.current?.files?.[0]) {
-        formData.append('photo', fileInputRef.current.files[0]);
+        formData.append('delivered_material_photo', fileInputRef.current.files[0]);
       } else {
         const res = await fetch(photo);
         const blob = await res.blob();
-        formData.append('photo', blob, 'evidencia.jpg');
+        formData.append('delivered_material_photo', blob, 'evidencia.jpg');
       }
 
       const result = await updateOrderStatusAction(id as string, formData);
@@ -77,6 +100,25 @@ export default function EntregaPage() {
     }
   };
 
+  const getZoneFromAddress = (address: string): string => {
+    if (!address) return "NO DEFINIDA";
+    const upper = address.toUpperCase();
+    if (upper.includes("NORTE")) return "NORTE";
+    if (upper.includes("SUR") || upper.includes("SURTE")) return "SUR";
+    if (upper.includes("CENTRO")) return "CENTRO";
+    if (upper.includes("INDUSTRIAL")) return "INDUSTRIAL";
+    return "METRO";
+  };
+
+  if (isLoadingOrder) {
+    return (
+      <div className="flex flex-col flex-1 bg-gray-50 justify-center items-center">
+        <Loader2 size={32} className="animate-spin text-halcon-orange" />
+        <p className="text-halcon-grey text-sm mt-4">Cargando detalles...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 bg-gray-50 pb-32">
       {/* Header */}
@@ -87,11 +129,13 @@ export default function EntregaPage() {
           </Link>
           <div className="flex-1">
             <p className="text-halcon-grey text-[10px] font-bold uppercase tracking-widest">Confirmar Entrega</p>
-            <h1 className="text-white text-lg font-bold">Factura #{id}</h1>
+            <h1 className="text-white text-lg font-bold">Factura #{order?.invoice_number || id}</h1>
           </div>
           <div className="bg-halcon-orange rounded-lg px-3 py-1 text-center">
             <span className="block text-halcon-dark text-[8px] font-black uppercase leading-none">Zona</span>
-            <span className="text-halcon-dark text-xs font-bold leading-none mt-1">NORTE</span>
+            <span className="text-halcon-dark text-xs font-bold leading-none mt-1">
+              {order ? getZoneFromAddress(order.delivery_address) : '...'}
+            </span>
           </div>
         </div>
       </div>
@@ -101,19 +145,36 @@ export default function EntregaPage() {
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex justify-between items-center">
           <div className="text-center flex-1">
             <p className="text-halcon-grey text-[8px] font-bold uppercase">Destinatario</p>
-            <p className="text-halcon-dark text-xs font-bold mt-1">Carlos M.</p>
+            <p className="text-halcon-dark text-xs font-bold mt-1">{order?.customer_name || '...'}</p>
           </div>
           <div className="w-[1px] h-8 bg-gray-100" />
           <div className="text-center flex-1">
             <p className="text-halcon-grey text-[8px] font-bold uppercase">Bultos</p>
-            <p className="text-halcon-dark text-xs font-bold mt-1">3 cajas</p>
+            <p className="text-halcon-dark text-xs font-bold mt-1">
+              {order?.products?.length || 0} {order?.products?.length === 1 ? 'producto' : 'productos'}
+            </p>
           </div>
           <div className="w-[1px] h-8 bg-gray-100" />
           <div className="text-center flex-1">
             <p className="text-halcon-grey text-[8px] font-bold uppercase">Tipo</p>
-            <p className="text-halcon-dark text-xs font-bold mt-1">Prioritario</p>
+            <p className="text-halcon-dark text-xs font-bold mt-1 capitalize">{order?.status?.toLowerCase() || 'Pendiente'}</p>
           </div>
         </div>
+
+        {/* Products List */}
+        {order?.products && order.products.length > 0 && (
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <p className="text-halcon-grey text-[8px] font-bold uppercase mb-3">Detalle de Productos</p>
+            <div className="space-y-2">
+              {order.products.map((product, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <span className="text-halcon-dark text-sm">{product.name}</span>
+                  <span className="text-halcon-grey text-xs font-medium">x{product.quantity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Camera Section */}
         <div className="space-y-2">

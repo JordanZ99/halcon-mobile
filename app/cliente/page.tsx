@@ -1,27 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  HardHat, 
-  FileText, 
-  User, 
-  ChevronRight, 
-  ChevronLeft,
-  Loader2,
-  Package,
-  CheckCircle2,
-  Truck,
-  Home,
-  ClipboardCheck,
-  Camera,
-  Eye,
-  Circle
-} from "lucide-react";
+import { HardHat, FileText, User, ChevronRight, ChevronLeft, Loader2, Package, CheckCircle2, Truck, Home, ClipboardCheck, Camera, Circle } from "lucide-react";
 import Link from "next/link";
+import { trackOrderAction } from "@/app/actions/tracking";
 
-const DELIVERY_EVIDENCE_IMAGE = "https://images.unsplash.com/photo-1760045788252-d8d386ea1d12?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkZWxpdmVyeSUyMGNvbnN0cnVjdGlvbiUyMHNpdGUlMjB3b3JrZXJ8ZW58MXx8fHwxNzc2NzQzMDQ4fDA&ixlib=rb-4.1.0&q=80&w=1080";
-
+type BackendStatus = "Ordered" | "In process" | "In route" | "Delivered";
 type OrderStatus = "Pedido Recibido" | "En Proceso" | "En Ruta" | "Entregado";
+
+const statusMap: Record<BackendStatus, OrderStatus> = {
+  "Ordered": "Pedido Recibido",
+  "In process": "En Proceso",
+  "In route": "En Ruta",
+  "Delivered": "Entregado"
+};
 
 const steps: { id: OrderStatus; label: string; sublabel: string; icon: any }[] = [
   { id: "Pedido Recibido", label: "Pedido Recibido", sublabel: "Confirmado en sistema", icon: ClipboardCheck },
@@ -32,28 +24,44 @@ const steps: { id: OrderStatus; label: string; sublabel: string; icon: any }[] =
 
 const statusOrder: OrderStatus[] = ["Pedido Recibido", "En Proceso", "En Ruta", "Entregado"];
 
+interface OrderData {
+  id: string;
+  status: OrderStatus;
+  customer: string;
+  delivery_address?: string;
+  products?: Array<{ name: string; quantity: number }>;
+}
+
 export default function ClientePage() {
   const [invoice, setInvoice] = useState("");
   const [clientId, setClientId] = useState("");
   const [searching, setSearching] = useState(false);
-  const [order, setOrder] = useState<{ id: string; status: OrderStatus; customer: string } | null>(null);
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!invoice || !clientId) return;
 
     setSearching(true);
     setOrder(null);
+    setErrorMsg("");
 
-    // Simulation
-    setTimeout(() => {
-      if (invoice === "123") {
-        setOrder({ id: "FAC-2024-0891", status: "Entregado", customer: clientId });
-      } else {
-        setOrder({ id: invoice.startsWith("FAC") ? invoice : `FAC-2024-${Math.floor(1000 + Math.random() * 9000)}`, status: "En Proceso", customer: clientId });
-      }
-      setSearching(false);
-    }, 800);
+    const result = await trackOrderAction(invoice, clientId);
+
+    if (result.success && result.found && result.data) {
+      setOrder({
+        id: result.data.invoice_number,
+        status: statusMap[result.data.status as BackendStatus] || "Pedido Recibido",
+        customer: result.data.customer_name,
+        delivery_address: result.data.delivery_address,
+        products: result.data.products
+      });
+    } else {
+      setErrorMsg(result.message || "No se encontró el pedido");
+    }
+
+    setSearching(false);
   };
 
   const currentIndex = order ? statusOrder.indexOf(order.status) : -1;
@@ -63,12 +71,17 @@ export default function ClientePage() {
       <div className="flex flex-col flex-1 bg-[#F0F2F4]">
         {/* Header Results */}
         <div className="bg-[#2C3E50] px-5 pt-12 pb-6">
-          <button 
-            onClick={() => setOrder(null)}
-            className="inline-flex items-center text-[#95A5A6] text-xs font-bold mb-4 hover:text-white transition-colors"
-          >
-            <ChevronLeft size={14} className="mr-1" /> NUEVA CONSULTA
-          </button>
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={() => setOrder(null)}
+              className="inline-flex items-center text-[#95A5A6] text-xs font-bold hover:text-white transition-colors"
+            >
+              <ChevronLeft size={14} className="mr-1" /> NUEVA CONSULTA
+            </button>
+            <Link href="/" className="inline-flex items-center text-[#95A5A6] text-xs font-bold hover:text-white transition-colors">
+              <ChevronLeft size={14} className="mr-1" /> SALIR
+            </Link>
+          </div>
           <h1 className="text-white text-2xl font-bold">Seguimiento de Pedido</h1>
           <p className="text-[#95A5A6] text-xs tracking-wider mt-1 uppercase">HALCON ERP</p>
         </div>
@@ -129,18 +142,26 @@ export default function ClientePage() {
             </div>
           </div>
 
-          {/* Evidence Section */}
-          {order.status === "Entregado" && (
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
-                <div className="flex items-center gap-2">
-                  <Camera size={16} className="text-[#F39C12]" />
-                  <p className="text-[#2C3E50] text-sm font-bold uppercase tracking-wider">Evidencia de Entrega</p>
+          {/* Products & Address Info */}
+          {(order.products || order.delivery_address) && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+              {order.delivery_address && (
+                <div>
+                  <p className="text-[#95A5A6] text-[10px] font-bold tracking-widest uppercase">Dirección de Entrega</p>
+                  <p className="text-[#2C3E50] text-sm mt-1">{order.delivery_address}</p>
                 </div>
-              </div>
-              <div className="h-48 relative">
-                <img src={DELIVERY_EVIDENCE_IMAGE} alt="Evidencia" className="w-full h-full object-cover" />
-              </div>
+              )}
+              {order.products && order.products.length > 0 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-[#95A5A6] text-[10px] font-bold tracking-widest uppercase mb-2">Productos</p>
+                  {order.products.map((product, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-[#2C3E50]">{product.name}</span>
+                      <span className="text-[#95A5A6] font-medium">x{product.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -151,7 +172,12 @@ export default function ClientePage() {
   return (
     <div className="flex flex-col flex-1 bg-[#2C3E50] min-h-screen">
       {/* Brand Header */}
-      <div className="flex flex-col items-center pt-16 pb-12">
+      <div className="px-5 pt-12 pb-4">
+        <Link href="/" className="inline-flex items-center text-[#95A5A6] text-xs font-bold hover:text-white transition-colors">
+          <ChevronLeft size={14} className="mr-1" /> SALIR
+        </Link>
+      </div>
+      <div className="flex flex-col items-center pt-4 pb-12">
         <div className="w-20 h-20 bg-[#F39C12] rounded-2xl flex items-center justify-center shadow-lg shadow-black/20 mb-6">
           <HardHat size={44} className="text-[#2C3E50]" />
         </div>
@@ -215,6 +241,11 @@ export default function ClientePage() {
                 <>INGRESAR <ChevronRight size={18} /></>
               )}
             </button>
+            {errorMsg && (
+              <p className="text-red-500 text-xs text-center mt-3 font-medium bg-red-50 py-2 rounded-lg">
+                {errorMsg}
+              </p>
+            )}
           </form>
 
           <p className="text-gray-300 text-[10px] font-medium mt-8 text-center">
