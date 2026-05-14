@@ -10,7 +10,8 @@ import {
   ChevronRight,
   LogOut,
   User,
-  Package2
+  Package2,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { loginAction, logoutAction } from "@/app/actions/auth";
@@ -28,6 +29,7 @@ const MOCK_ORDERS: OrderItem[] = [];
 
 export default function RepartidorPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [orders, setOrders] = useState<OrderItem[]>(MOCK_ORDERS);
@@ -46,6 +48,7 @@ export default function RepartidorPage() {
         setDeliveredOrders(delivered);
         setIsLoggedIn(true);
       }
+      setIsCheckingAuth(false);
     };
     checkAuth();
   }, []);
@@ -100,6 +103,15 @@ export default function RepartidorPage() {
     if (!products || products.length === 0) return "Sin productos";
     return products.map(p => `${p.quantity}x ${p.name}`).join(", ");
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex flex-col flex-1 items-center justify-center bg-gray-50 min-h-screen">
+        <Loader2 className="animate-spin text-halcon-orange" size={32} />
+        <p className="text-halcon-dark mt-4 font-medium text-sm">Verificando sesión...</p>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
